@@ -1,0 +1,388 @@
+---
+title: "LDA"
+author: "Kshitij Jain"
+date: "2023-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r warning=FALSE}
+library(RedditExtractoR)
+library(tidyverse)
+library(tidytext)
+library(tm)
+library(SnowballC)
+library(topicmodels)
+library(wordcloud)
+```
+
+```{r}
+# fetch the subreddit data and save to files
+
+#top_posts_count=100
+#gaming_metadata=find_thread_urls(subreddit="Games", sort_by="top", period="all")
+#gaming_all=get_thread_content((gaming_metadata,top_posts_count)$url)
+
+#write.csv(gaming_all[[1]],"threads_100.csv")
+#write.csv(gaming_all[[2]],"comments_100.csv")
+```
+
+```{r}
+threads = read.csv('threads_100.csv')
+comments = read.csv('comments_100.csv')
+```
+
+
+```{r}
+glimpse(threads)
+glimpse(comments)
+```
+
+
+```{r}
+#convert to lowercase
+comments$comment <- tolower(comments$comment)
+```
+
+
+```{r}
+#tokenize text
+comments$comment <- strsplit(comments$comment, "\\W+")
+```
+
+
+```{r}
+#remove stop words
+comments$comment <- lapply(comments$comment, function(tokens) tokens[!tokens %in% stopwords("english")])
+```
+
+
+```{r}
+#remove punctuation and numbers
+comments$comment <- gsub("[^[:alpha:] ]", "", comments$comment)
+```
+
+
+```{r}
+#convert back to character vectors
+comments$comment <- sapply(comments$comment, function(tokens) paste(tokens, collapse = " "))
+```
+
+```{r}
+df_words <- tibble(comments) %>% 
+  mutate(text_words = comment) %>% 
+  unnest_tokens(word, text_words)
+```
+
+```{r}
+own = c('game','like')
+df_words = anti_join(df_words, data.frame(word = own, by = "word"))
+```
+
+```{r}
+afinn <- get_sentiments("afinn")
+sentiments <- df_words %>%
+  inner_join(afinn, by = "word")
+```
+
+```{r}
+#filter the comments and extract the most frequent positive words
+positive_words <- sentiments %>% filter(value > 0)
+
+frequent_positive_words <- positive_words %>%
+  anti_join(stop_words, by = "word") %>%
+  count(word, sort = TRUE)
+
+#plot the most frequent words as a word cloud
+wordcloud(words = frequent_positive_words$word, freq = frequent_positive_words$n,
+          min.freq = 1, max.words = 100, random.order = FALSE,
+          colors = brewer.pal(8, "Dark2"),
+          scale = c(4, 0.5),
+          rot.per = 0.25,
+          main = "Most Frequent Positive Words in Comments")
+```
+
+
+```{r}
+#filter the comments and extract the most frequent negative words
+negative_words <- sentiments %>% filter(value < 0)
+
+frequent_negative_words <- negative_words %>%
+  anti_join(stop_words, by = "word") %>%
+  count(word, sort = TRUE)
+
+#plot the most frequent words as a word cloud
+wordcloud(words = frequent_negative_words$word, freq = frequent_negative_words$n,
+          min.freq = 1, max.words = 100, random.order = FALSE,
+          colors = brewer.pal(8, "Dark2"),
+          scale = c(4, 0.5),
+          rot.per = 0.25,
+          main = "Most Frequent negative Words in Comments")
+```
+```{r}
+own = data.frame(word = c('game','like'))
+sentiments = anti_join(sentiments, own, by = "word")
+```
+
+```{r}
+results <- sentiments %>%
+  group_by(comment) %>%
+  summarize(sentiment_score = sum(value))
+head(results)
+```
+
+```{r}
+plot(density(results$sentiment_score))
+```
+
+```{r message=FALSE}
+#filter the positive comments and extract the most frequent words
+positive_comments <- results %>% filter(sentiment_score > 0)
+
+frequent_words <- positive_comments %>%
+  unnest_tokens(word, comment) %>%
+  anti_join(stop_words, by = "word") %>%
+  anti_join( own, by = "word") %>%
+  count(word, sort = TRUE)
+
+#plot the most frequent words as a word cloud
+wordcloud(words = frequent_words$word, freq = frequent_words$n,
+          min.freq = 1, max.words = 100, random.order = FALSE,
+          colors = brewer.pal(8, "Dark2"),
+          scale = c(4, 0.5),
+          rot.per = 0.25,
+          main = "Most Frequent Words in Positive Comments")
+```
+
+
+```{r}
+#filter the negative comments and extract the most frequent words
+negative_comments <- results %>% filter(sentiment_score < 0)
+
+frequent_words <- negative_comments %>%
+  unnest_tokens(word, comment) %>%
+  anti_join(stop_words, by = "word") %>%
+  anti_join( own, by = "word") %>%
+  count(word, sort = TRUE)
+
+#plot the most frequent words as a word cloud
+wordcloud(words = frequent_words$word, freq = frequent_words$n,
+          min.freq = 1, max.words = 100, random.order = FALSE,
+          colors = brewer.pal(8, "Dark2"),
+          scale = c(4, 0.5),
+          rot.per = 0.25,
+          main = "Most Frequent Words in Positive Comments")
+```
+
+
+```{r}
+comments = read.csv('comments_100.csv')
+
+#data preprocessing 
+gaming_data=merge(threads,comments,by="url",all=TRUE)
+
+gaming_data <- gaming_data %>%
+  group_by(url, title, text) %>%
+  summarise(comments_merged = paste(comment, collapse = " "))
+``` 
+
+
+```{r}
+#Concatinating title and texts
+gaming_data$word=paste(gaming_data$title,gaming_data$text,gaming_data$comments_merged,sep = " ")
+```
+
+```{r}
+#remove punctuation and special characters
+gaming_data$word <- gsub("[^[:alpha:] ]", "", gaming_data$word)
+```
+
+
+```{r}
+#convert to lowercase
+gaming_data$word <- tolower(gaming_data$word)
+```
+
+
+```{r}
+#tokenize text
+gaming_data$word <- strsplit(gaming_data$word, "\\W+")
+```
+
+
+```{r}
+#remove stop words
+gaming_data$word <- lapply(gaming_data$word, function(tokens) tokens[!tokens %in% stopwords("english")])
+```
+
+
+```{r}
+#remove stop words
+gaming_data$word <- lapply(gaming_data$word, function(tokens) tokens[!tokens %in% c('game','like','just','get','one','play',
+'can','see','people','dont','like','year','time','make','realli','know', 'im', 'look', 'release', 'access', 'realis','even','really','early','that','move','now','go','think','say','thing','will','actual','that','cat')])
+```
+
+```{r}
+gaming_data$word <- lapply(gaming_data$word, function(tokens) tokens[!tokens %in% stopwords("english")])
+```
+
+```{r}
+#stem words
+gaming_data$word <- lapply(gaming_data$word, function(tokens) wordStem(tokens, language = "english"))
+```
+
+```{r}
+# Convert tokenized text array to tidy format
+
+token_text <- lapply(gaming_data$word, function(tokens) tokens[!tokens %in% c('na')])
+token_text = as.character(token_text)
+
+tidy_text <- tibble(line = 1:length(gaming_data$word), text = token_text) %>%
+  unnest_tokens(word, text) 
+
+# Generate bigrams from tokens
+ngrams <- tidy_text %>%
+  mutate(word = as.character(word)) %>%
+  mutate(bigram = paste(word, lead(word), sep = " ")) %>%
+  count(bigram, sort = TRUE)
+```
+
+
+```{r}
+# Select top 10 bigrams
+top_ngrams <- head(ngrams, 10)
+```
+
+
+```{r}
+# Plot bar chart of top ngrams
+ggplot(top_ngrams, aes(x = reorder(bigram, n), y = n)) +
+  geom_col(fill = 'blue') +
+  ggtitle("Top 10 bigrams") +
+  theme(plot.title = element_text(size = 15, hjust = 0.5)) +
+  xlab("Bigram") +
+  ylab("Count") +
+  coord_flip()
+```
+
+```{r}
+# Convert tokenized text array to tidy format
+tidy_text <- tibble(line = 1:length(gaming_data$word), text = as.character(gaming_data$word)) %>%
+  unnest_tokens(trigram, text, token = "ngrams", n = 3)
+
+# Generate trigrams from tokens
+ngrams <- tidy_text %>%
+  mutate(trigram = as.character(trigram)) %>%
+  count(trigram, sort = TRUE)
+```
+
+
+```{r}
+# Select top 10 trigrams
+top_ngrams <- head(ngrams, 10)
+
+# Plot bar chart of top ngrams
+ggplot(top_ngrams, aes(x = reorder(trigram, n), y = n)) +
+  geom_col(fill = 'red') +
+  ggtitle("Top 10 trigrams") +
+  theme(plot.title = element_text(size = 15, hjust = 0.5)) +
+  xlab("Trigram") +
+  ylab("Count") +
+  coord_flip()
+```
+
+
+```{r}
+gaming_dtm <- DocumentTermMatrix(gaming_data$word)
+gaming_lda <- LDA(gaming_dtm, k = 4, control = list(seed = 1234))
+gaming_lda
+gaming_topics <- tidy(gaming_lda, matrix = "beta")
+gaming_topics
+```
+
+
+```{r}
+top_terms <- gaming_topics %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+
+```
+
+```{r}
+#Calculate the proportion of documents assigned to each topic
+topic_proportions <- colSums(gaming_lda@gamma) / sum(gaming_lda@gamma)
+
+#Create a named vector of topic proportions
+names(topic_proportions) <- paste("Topic", 1:gaming_lda@k, sep=" ")
+```
+
+
+```{r}
+#Create the pie chart
+
+my_topic_names = c("Lego", "Bugs and development","Conflicting opinions ",
+                   "Pokemon")
+
+topic_labels <- paste0(my_topic_names, " (", round(topic_proportions * 100, 1), "%)")
+names(topic_labels) <- my_topic_names
+
+#Create the pie chart with custom topic names and percentage labels
+pie(topic_proportions, main="Topic Distribution", labels=topic_labels, col=rainbow(length(topic_proportions)))
+```
+
+
+
+```{r} 
+topic1 <- top_terms %>% filter(topic == 1) %>%
+  mutate(term = reorder_within(term, beta, topic))
+topic2 <- top_terms %>% filter(topic == 2) %>%
+  mutate(term = reorder_within(term, beta, topic))
+topic3 <- top_terms %>% filter(topic == 3) %>%
+  mutate(term = reorder_within(term, beta, topic))
+topic4 <- top_terms %>% filter(topic == 4) %>%
+  mutate(term = reorder_within(term, beta, topic))
+```
+
+
+```{r}
+# Create separate plots for each topic
+plot1 <- ggplot(topic1, aes(beta, term)) +
+  geom_col(show.legend = FALSE, width = 0.75, fill = 'magenta') +
+  scale_y_reordered() +
+  ggtitle("Lego games are still considered good") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title.y = element_blank())
+
+plot2 <- ggplot(topic2, aes(beta, term)) +
+  geom_col(show.legend = FALSE, width = 0.75, fill = 'turquoise') +
+  scale_y_reordered() +
+  ggtitle("Many good games have bugs and need further development") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title.y = element_blank())
+
+plot3 <- ggplot(topic3, aes(beta, term)) +
+  geom_col(show.legend = FALSE, width = 0.75, fill = 'purple') +
+  scale_y_reordered() +
+  ggtitle("Some games' changes have created conflicting opinions ") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title.y = element_blank())
+
+plot4 <- ggplot(topic4, aes(beta, term)) +
+  geom_col(show.legend = FALSE, width = 0.75, fill = 'orange') +
+  scale_y_reordered() +
+  ggtitle("Pokemon characters are discussed often") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title.y = element_blank())
+```
+
+```{r}
+plot1
+plot2
+plot3
+plot4
+```
