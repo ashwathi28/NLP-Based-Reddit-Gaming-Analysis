@@ -54,7 +54,7 @@ Future Scope:
 
 Contributers:
 
-  Ashwathi Ajayan Nambiar
-  Falgun Malhotra
-  Kshitij Jain
+  Ashwathi Ajayan Nambiar,
+  Falgun Malhotra,
+  Kshitij Jain,
   Mohammed Mafaz Nadherssa
