@@ -14,8 +14,8 @@ Extracted the top 100 posts in the Gaming subreddit using functions such as find
 
 ## Natural Language Processing(NLP) Algorithms:
 
-1. N-Gram Analysis:
-  Steps: 
+## 1. N-Gram Analysis:
+  ## Steps: 
     Concatenate title and texts.
     Remove punctuation and special characters.
     Convert to lowercase
@@ -25,8 +25,8 @@ Extracted the top 100 posts in the Gaming subreddit using functions such as find
     Generate bigram and trigram.
     Display top 10 bigram and trigram.
     
-2. Topic Modeling Using Latent Dirichlet Allocation(LDA):
-  Steps:
+## 2. Topic Modeling Using Latent Dirichlet Allocation(LDA):
+  ## Steps:
     Using the data from n-gram analysis, create a character vector.
     Create a document term matrix.
     Trial and error method to choose number of topics to run LDA.
